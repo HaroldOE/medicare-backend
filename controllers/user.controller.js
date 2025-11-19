@@ -1,4 +1,4 @@
-import { User } from "../models/";
+import { User } from "../models/user.model.js";
 
 export const userController = {
   create: async (req, res) => {

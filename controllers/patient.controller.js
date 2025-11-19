@@ -1,10 +1,10 @@
-import { User } from "../models/user.model.js";
+import { Patient } from "../models/patient.model.js";
 
-export const userController = {
+export const patientController = {
   create: async (req, res) => {
     try {
-      const userId = await User.create(req.body);
-      res.json({ message: "User created", userId });
+      const patientId = await Patient.create(req.body);
+      res.json({ message: "Patient created", patientId });
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -12,8 +12,8 @@ export const userController = {
 
   findAll: async (req, res) => {
     try {
-      const users = await User.findAll();
-      res.json(users);
+      const patients = await Patient.findAll();
+      res.json(patients);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -21,8 +21,8 @@ export const userController = {
 
   findById: async (req, res) => {
     try {
-      const user = await User.findById(req.params.id);
-      res.json(user);
+      const patient = await Patient.findById(req.params.id);
+      res.json(patient);
     } catch (error) {
       res.status(500).json({ error: error.message });
     }
@@ -30,7 +30,7 @@ export const userController = {
 
   update: async (req, res) => {
     try {
-      const affected = await User.update(req.params.id, req.body);
+      const affected = await Patient.update(req.params.id, req.body);
       res.json({ message: `${affected} record(s) updated` });
     } catch (error) {
       res.status(500).json({ error: error.message });
@@ -39,7 +39,7 @@ export const userController = {
 
   delete: async (req, res) => {
     try {
-      const affected = await User.delete(req.params.id);
+      const affected = await Patient.delete(req.params.id);
       res.json({ message: `${affected} record(s) deleted` });
     } catch (error) {
       res.status(500).json({ error: error.message });

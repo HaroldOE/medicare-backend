@@ -2,11 +2,15 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 
-// import cretetables
-import { createConsultationTable } from "./models/consultation.model.js";
+// import endpoints
+import userRouter from "./routes/user.routes.js";
+import patientRouter from "./routes/patient.route.js";
 
-// import consultationRouter from "./routes/consultaion.routes.js";
-import consultationRouter from "./routes/consultation.routes.js";
+// import tables
+import { createDoctorsTable } from "./models/doctor.model.js";
+import { createPatientsTable } from "./models/patient.model.js";
+import { createUsersTable } from "./models/user.model.js";
+import doctorsRouter from "./routes/doctor.routes.js";
 
 dotenv.config();
 const app = express();
@@ -14,6 +18,24 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT;
+
+// initialize tables
+await createUsersTable(); // Must run BEFORE creating Patients or Doctors
+await createPatientsTable();
+await createDoctorsTable();
+
+app.use("/api/user", userRouter);
+app.use("/api/patients", patientRouter);
+app.use("/api/doctors", doctorsRouter);
+
+// initialize tables
+await createUsersTable(); // Must run BEFORE creating Patients or Doctors
+await createPatientsTable();
+await createDoctorsTable();
+
+app.use("/api/user", userRouter);
+app.use("/api/patients", patientRouter);
+app.use("/api/doctors", doctorsRouter);
 
 // Create necessary tables
 await createConsultationTable();

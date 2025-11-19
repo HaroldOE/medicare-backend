@@ -5,12 +5,12 @@ import cors from "cors";
 // import endpoints
 import userRouter from "./routes/user.routes.js";
 import patientRouter from "./routes/patient.route.js";
+import doctorsRouter from "./routes/doctor.routes.js";
 
 // import tables
 import { createDoctorsTable } from "./models/doctor.model.js";
 import { createPatientsTable } from "./models/patient.model.js";
 import { createUsersTable } from "./models/user.model.js";
-import doctorsRouter from "./routes/doctor.routes.js";
 
 dotenv.config();
 const app = express();

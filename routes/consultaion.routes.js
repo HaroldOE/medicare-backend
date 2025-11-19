@@ -7,12 +7,12 @@ import {
   deleteConsultation
 } from "../controllers/consultation.controller.js";
 
-const router = express.Router();
+const consultationRouter = express.Router();
 
-router.post("/", createConsultation);           // Create
-router.get("/", getAllConsultations);          // Get all
-router.get("/:id", getConsultationById);       // Get by ID
-router.put("/:id", updateConsultation);        // Update
-router.delete("/:id", deleteConsultation);     // Delete
+consultationRouter.post("/", createConsultation);           // Create
+consultationRouter.get("/", getAllConsultations);          // Get all
+consultationRouter.get("/:id", getConsultationById);       // Get by ID
+consultationRouter.put("/:id", updateConsultation);        // Update
+consultationRouter.delete("/:id", deleteConsultation);     // Delete
 
-export default router;
+export default consultationRouter;

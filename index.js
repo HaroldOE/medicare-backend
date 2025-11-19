@@ -10,10 +10,7 @@ import patientRouter from "./routes/patient.route.js";
 import { createDoctorsTable } from "./models/doctor.model.js";
 import { createPatientsTable } from "./models/patient.model.js";
 import { createUsersTable } from "./models/user.model.js";
-
-await createUsersTable(); // Must run BEFORE creating Patients or Doctors
-await createPatientsTable();
-await createDoctorsTable();
+import doctorsRouter from "./routes/doctor.routes.js";
 
 dotenv.config();
 const app = express();
@@ -22,7 +19,14 @@ app.use(express.json());
 
 const PORT = process.env.PORT;
 
+// initialize tables
+await createUsersTable(); // Must run BEFORE creating Patients or Doctors
+await createPatientsTable();
+await createDoctorsTable();
 
+app.use("/api/user", userRouter);
+app.use("/api/patients", patientRouter);
+app.use("/api/doctors", doctorsRouter);
 
 app.get("/api/test", (req, res) => {
   return res.status(200).json({ message: "everywhere good" });

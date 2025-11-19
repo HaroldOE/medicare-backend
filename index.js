@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 
 // import endpoints
+
 // import tables
 import { createDoctorsTable } from "./models/doctor.model.js";
 import { createPatientsTable } from "./models/patient.model.js";

@@ -3,6 +3,9 @@ import dotenv from "dotenv";
 import cors from "cors";
 
 // import endpoints
+import userRouter from "./routes/user.routes.js";
+import patientRouter from "./routes/patient.route.js";
+
 // import tables
 import { createDoctorsTable } from "./models/doctor.model.js";
 import { createPatientsTable } from "./models/patient.model.js";
@@ -18,6 +21,8 @@ app.use(cors());
 app.use(express.json());
 
 const PORT = process.env.PORT;
+
+
 
 app.get("/api/test", (req, res) => {
   return res.status(200).json({ message: "everywhere good" });

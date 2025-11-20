@@ -5,12 +5,14 @@ import cors from "cors";
 // import endpoints
 import userRouter from "./routes/user.routes.js";
 import patientRouter from "./routes/patient.route.js";
+import doctorsRouter from "./routes/doctor.routes.js";
+import inventoryRouter from "./routes/inventory.route.js";
 
 // import tables
 import { createDoctorsTable } from "./models/doctor.model.js";
 import { createPatientsTable } from "./models/patient.model.js";
 import { createUsersTable } from "./models/user.model.js";
-import doctorsRouter from "./routes/doctor.routes.js";
+import { createInventoryTable } from "./models/inventory.model.js";
 
 dotenv.config();
 const app = express();
@@ -23,11 +25,13 @@ const PORT = process.env.PORT;
 await createUsersTable(); // Must run BEFORE creating Patients or Doctors
 await createPatientsTable();
 await createDoctorsTable();
+await createInventoryTable();
 
+// define routes
 app.use("/api/user", userRouter);
 app.use("/api/patients", patientRouter);
 app.use("/api/doctors", doctorsRouter);
-
+app.use("/api/inventory", inventoryRouter);
 app.get("/api/test", (req, res) => {
   return res.status(200).json({ message: "everywhere good" });
 });

@@ -6,6 +6,7 @@ import cors from "cors";
 import userRouter from "./routes/user.routes.js";
 import patientRouter from "./routes/patient.route.js";
 import doctorsRouter from "./routes/doctor.routes.js";
+import authRoutes from "./routes/auth.routes.js";
 
 // import tables
 import { createDoctorsTable } from "./models/doctor.model.js";
@@ -27,6 +28,7 @@ await createDoctorsTable();
 app.use("/api/user", userRouter);
 app.use("/api/patients", patientRouter);
 app.use("/api/doctors", doctorsRouter);
+app.use("/api/auth", authRoutes);
 
 app.get("/api/test", (req, res) => {
   return res.status(200).json({ message: "everywhere good" });

@@ -1,12 +1,20 @@
 import express from "express";
 import { userController } from "../controllers/user.controller.js";
+import { authenticate, authorizeRole } from "../core/auth.js";
 
-const userRouter = express.Router();
+const router = express.Router();
 
-userRouter.post("/", userController.create);
-userRouter.get("/", userController.findAll);
-userRouter.get("/:id", userController.findById);
-userRouter.put("/:id", userController.update);
-userRouter.delete("/:id", userController.delete);
+// Pass function references, NOT calls or objects
+router.post("/", userController.create); // <--- add this
 
-export default userRouter;
+router.get(
+  "/",
+  authenticate,
+  authorizeRole("doctor", "patient"),
+  userController.findAll
+);
+router.get("/:id", authenticate, userController.findOne);
+router.put("/:id", authenticate, userController.update);
+router.delete("/:id", authenticate, userController.delete);
+
+export default router;

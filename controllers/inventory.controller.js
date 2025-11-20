@@ -8,7 +8,11 @@ export const InventoryController = {
       res.status(201).json({ message: "Inventory created", inventory_id: id });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ error: "Failed to create inventory record" });
+      res.status(500).json({
+        success: false,
+        message: "Failed to create inventory record",
+        error: error.message,
+      });
     }
   },
 

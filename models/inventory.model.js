@@ -58,13 +58,19 @@ export const Inventory = {
 
   // UPDATE
   async update(id, data) {
-    const { clinic_id, medicine_id, quantity, reorder_level } = data;
+    const fields = Object.keys(data);
+    const values = Object.values(data);
+
+    if (fields.length === 0) return 0; // nothing to update
+
+    // Dynamically create SET clause
+    const setStr =
+      fields.map((field) => `${field} = ?`).join(", ") +
+      ", updated_at = CURRENT_TIMESTAMP";
 
     const [result] = await db.execute(
-      `UPDATE inventory
-       SET clinic_id = ?, medicine_id = ?, quantity = ?, reorder_level = ?
-       WHERE inventory_id = ?`,
-      [clinic_id, medicine_id, quantity, reorder_level, id]
+      `UPDATE inventory SET ${setStr} WHERE inventory_id = ?`,
+      [...values, id]
     );
 
     return result.affectedRows;

@@ -15,7 +15,7 @@ import { createDoctorsTable } from "./models/doctor.model.js";
 import { createPatientsTable } from "./models/patient.model.js";
 import { createUsersTable } from "./models/user.model.js";
 import { createInventoryTable } from "./models/inventory.model.js";
-
+import { createConsultationTable } from "./models/consultation.model.js";
 
 dotenv.config();
 const app = express();
@@ -29,6 +29,7 @@ await createUsersTable(); // Must run BEFORE creating Patients or Doctors
 await createPatientsTable();
 await createDoctorsTable();
 await createInventoryTable();
+await createConsultationTable();
 
 // define routes
 app.use("/api/user", userRouter);

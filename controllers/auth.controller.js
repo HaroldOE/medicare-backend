@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { User } from "../models/user.model.js";
+import { error } from "console";
 
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRATION || "1h";
@@ -33,14 +34,18 @@ export const authController = {
         expiresIn: JWT_EXPIRES_IN,
       });
 
-      res.json({
+      return res.json({
         message: "Login successful",
         token,
         user: { user_id: user.user_id, email: user.email, role: user.role },
       });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Internal server error" });
+    } catch (error) {
+      console.error(error);
+      return res.status(500).json({
+        success: false,
+        message: "Internal server error",
+        error: error.message,
+      });
     }
   },
 

@@ -25,7 +25,8 @@ export const createConsultationTable = async () => {
 export const Consultation = {
   // Create
   async create(data) {
-    const { patient_id, doctor_id, date, symptoms, diagnosis, prescription } = data;
+    const { patient_id, doctor_id, date, symptoms, diagnosis, prescription } =
+      data;
     const [result] = await db.execute(
       `INSERT INTO consultation (patient_id, doctor_id, date, symptoms, diagnosis, prescription)
        VALUES (?, ?, ?, ?, ?, ?)`,
@@ -53,13 +54,21 @@ export const Consultation = {
 
   // Update
   async update(consult_id, data) {
-    const { patient_id, doctor_id, date, symptoms, diagnosis, prescription } = data;
+    const fields = Object.keys(data);
+    const values = Object.values(data);
+
+    if (fields.length === 0) return 0; // nothing to update
+
+    // Dynamically create SET clause
+    const setStr =
+      fields.map((field) => `${field} = ?`).join(", ") +
+      ", updated_at = CURRENT_TIMESTAMP";
+
     const [result] = await db.execute(
-      `UPDATE consultation 
-       SET patient_id = ?, doctor_id = ?, date = ?, symptoms = ?, diagnosis = ?, prescription = ?
-       WHERE consult_id = ?`,
-      [patient_id, doctor_id, date, symptoms, diagnosis, prescription, consult_id]
+      `UPDATE consultation SET ${setStr} WHERE consult_id = ?`,
+      [...values, consult_id]
     );
+
     return result.affectedRows;
   },
 

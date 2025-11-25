@@ -1,4 +1,5 @@
 import { Patient } from "../models/patient.model.js";
+import { sendEmail } from "../core/email.js";
 
 export const patientController = {
   create: async (req, res) => {

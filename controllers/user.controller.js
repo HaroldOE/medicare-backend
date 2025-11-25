@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { User } from "../models/user.model.js";
-
+import { sendEmail } from "../core/email.js";
+import { doctorsTemplate, patientTemplate } from "../models/email.templates.js";
 const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || "10", 10);
 
 export const userController = {
@@ -11,7 +12,7 @@ export const userController = {
       if (!email || !password || !role)
         return res
           .status(400)
-          .json({ error: "Email, password, role required" });
+          .json({ error: "Email, password, role, name required" });
 
       if (!["patient", "doctor"].includes(role.toLowerCase()))
         return res
@@ -23,10 +24,24 @@ export const userController = {
         return res.status(409).json({ error: "Email already registered" });
 
       const hashed = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+
       const user_id = await User.create({
         email,
         password: hashed,
         role: role.toLowerCase(),
+      });
+
+      // Load template
+      const template =
+        role === "doctor"
+          ? doctorsTemplate.replace(/{{name}}/g, email)
+          : patientTemplate.replace(/{{name}}/g, email);
+
+      // Send email
+      await sendEmail({
+        to: email,
+        subject: "Welcome to MediChain",
+        html: template,
       });
 
       res.status(201).json({

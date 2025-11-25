@@ -55,12 +55,21 @@ export const Doctor = {
   },
 
   async update(doctor_id, data) {
-    const { name, specialization, license, availability, rating } = data;
+    const fields = Object.keys(data);
+    const values = Object.values(data);
+
+    if (fields.length === 0) return 0; // nothing to update
+
+    // Dynamically build SET part of SQL
+    const setStr =
+      fields.map((field) => `${field} = ?`).join(", ") +
+      ", updated_at = CURRENT_TIMESTAMP";
+
     const [result] = await db.execute(
-      `UPDATE Doctors SET name = ?, specialization = ?, license = ?, availability = ?, rating = ?, updated_at = CURRENT_TIMESTAMP
-       WHERE doctor_id = ?`,
-      [name, specialization, license, availability, rating, doctor_id]
+      `UPDATE Doctors SET ${setStr} WHERE doctor_id = ?`,
+      [...values, doctor_id]
     );
+
     return result.affectedRows;
   },
 

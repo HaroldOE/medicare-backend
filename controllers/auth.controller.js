@@ -64,7 +64,8 @@ export const authController = {
       await User.deleteAllResetTokensForUser(user.user_id);
       await User.createPasswordResetToken(user.user_id, tokenPlain, expiresAt);
 
-      // TODO: send tokenPlain via email in production
+      // TODO: send tokenPlain via email in production ✅
+      // TODO: set up frontend link
       // const resetLink = res.json({
       //   message: "Password reset token generated",
       //   token: tokenPlain,

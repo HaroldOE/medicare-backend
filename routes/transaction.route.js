@@ -1,21 +1,21 @@
 import express from "express";
-import { TransactionsController } from "./transactions.controller.js";
+import { TransactionsController } from "../controllers/transaction.controller.js";
 
-const router = express.Router();
+const transactionRouter = express.Router();
 
-// Create
-router.post("/", TransactionsController.create);
+// Create Transaction
+transactionRouter.post("/", TransactionsController.create);
 
-// Get All
-router.get("/", TransactionsController.getAll);
+// Get All Transactions
+transactionRouter.get("/", TransactionsController.getAll);
 
-// Get One
-router.get("/:id", TransactionsController.getById);
+// Get Single Transaction
+transactionRouter.get("/:id", TransactionsController.getById);
 
-// Update
-router.put("/:id", TransactionsController.update);
+// Update Transaction
+transactionRouter.put("/:id", TransactionsController.update);
 
-// Delete
-router.delete("/:id", TransactionsController.delete);
+// Delete Transaction
+transactionRouter.delete("/:id", TransactionsController.delete);
 
-export default router;
+export default transactionRouter;

@@ -6,13 +6,13 @@ import cors from "cors";
 import userRouter from "./routes/user.routes.js";
 import patientRouter from "./routes/patient.route.js";
 import doctorsRouter from "./routes/doctor.routes.js";
-import transactionRouter from "./routes/user.routes.js";
+import transactionsRouter from "./routes/transaction.route.js";
 
 // import tables
 import { createDoctorsTable } from "./models/doctor.model.js";
 import { createPatientsTable } from "./models/patient.model.js";
 import { createUsersTable } from "./models/user.model.js";
-import {createTransactionTable} from "./modeels/transaction.model.js";
+import {createTransactionsTable} from "./models/transaction.model.js";
 
 dotenv.config();
 const app = express();
@@ -27,11 +27,11 @@ await createPatientsTable();
 await createDoctorsTable();
 await createTransactionsTable();
 
+// define routes
 app.use("/api/user", userRouter);
 app.use("/api/patients", patientRouter);
 app.use("/api/doctors", doctorsRouter);
-app.use("/api/transactions",transactionsRouter);
-
+app.use("/api/transactions", transactionsRouter);
 app.get("/api/test", (req, res) => {
   return res.status(200).json({ message: "everywhere good" });
 });

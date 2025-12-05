@@ -12,7 +12,7 @@ async function createConnection() {
       database: process.env.DB_NAME,
       port: Number(process.env.DB_PORT),
       waitForConnections: true,
-      connectionLimit: 10,
+      connectionLimit: 100,
       queueLimit: 0,
     });
 

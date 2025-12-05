@@ -9,6 +9,7 @@ import doctorsRouter from "./routes/doctor.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import consultationRouter from "./routes/consultation.routes.js";
 import inventoryRouter from "./routes/inventory.route.js";
+import appointmentRouter from "./routes/appointment.route.js";
 
 // import tables
 import { createDoctorsTable } from "./models/doctor.model.js";
@@ -16,6 +17,8 @@ import { createPatientsTable } from "./models/patient.model.js";
 import { createUsersTable } from "./models/user.model.js";
 import { createInventoryTable } from "./models/inventory.model.js";
 import { createConsultationTable } from "./models/consultation.model.js";
+import { addIsLiveColumnToDoctors } from "./models/doctor.model.js";
+import { AppointmentModel } from "./models/appointment.model.js";
 
 dotenv.config();
 const app = express();
@@ -30,6 +33,8 @@ await createPatientsTable();
 await createDoctorsTable();
 await createInventoryTable();
 await createConsultationTable();
+await AppointmentModel.createAppointmentTable();
+// await addIsLiveColumnToDoctors();
 
 // define routes
 app.use("/api/user", userRouter);
@@ -38,6 +43,7 @@ app.use("/api/doctors", doctorsRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/consultations", consultationRouter);
 app.use("/api/inventory", inventoryRouter);
+app.use("/api/appointments", appointmentRouter);
 
 app.get("/api/test", (req, res) => {
   return res.status(200).json({ message: "everywhere good" });

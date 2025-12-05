@@ -2,15 +2,34 @@ import { Doctor } from "../models/doctor.model.js";
 
 export const DoctorController = {
   // Create a doctor
-  async create(req, res) {
-    try {
-      const doctorId = await Doctor.create(req.body);
-      res.json({ message: "Doctor created successfully", doctorId });
-    } catch (error) {
-      console.error("Error creating doctor:", error);
-      res.status(500).json({ error: error.message });
-    }
+
+  async create(data) {
+    const {
+      user_id,
+      name,
+      specialization,
+      license,
+      availability,
+      rating = 0,
+      is_live = false,
+    } = data;
+    const [result] = await db.execute(
+      `INSERT INTO Doctors (user_id, name, specialization, license, availability, rating, is_live)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [user_id, name, specialization, license, availability, rating, is_live]
+    );
+    return result.insertId;
   },
+
+  // async create(req, res) {
+  //   try {
+  //     const doctorId = await Doctor.create(req.body);
+  //     res.json({ message: "Doctor created successfully", doctorId });
+  //   } catch (error) {
+  //     console.error("Error creating doctor:", error);
+  //     res.status(500).json({ error: error.message });
+  //   }
+  // },
 
   // Get all doctors
   async findAll(req, res) {

@@ -9,6 +9,7 @@ import doctorsRouter from "./routes/doctor.routes.js";
 import authRoutes from "./routes/auth.routes.js";
 import consultationRouter from "./routes/consultation.routes.js";
 import inventoryRouter from "./routes/inventory.route.js";
+import excelRouter from "./routes/excel.route.js";
 
 // import tables
 import { createDoctorsTable } from "./models/doctor.model.js";
@@ -38,6 +39,7 @@ app.use("/api/doctors", doctorsRouter);
 app.use("/api/auth", authRoutes);
 app.use("/api/consultations", consultationRouter);
 app.use("/api/inventory", inventoryRouter);
+app.use("/api/data", excelRouter);
 
 app.get("/api/test", (req, res) => {
   return res.status(200).json({ message: "everywhere good" });

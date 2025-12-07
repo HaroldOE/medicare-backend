@@ -8,7 +8,7 @@ export const createPatientsTable = async () => {
     // await db.query(`DROP TABLE IF EXISTS Patients`);
     // await db.query(`SET FOREIGN_KEY_CHECKS = 1`);
 
-    console.log("patients table dropped successfully");
+    // console.log("patients table dropped successfully");
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS Patients (

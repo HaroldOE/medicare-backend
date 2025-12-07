@@ -1,13 +1,89 @@
 import { Patient } from "../models/patient.model.js";
 import { sendEmail } from "../core/email.js";
+import bcrypt from "bcrypt";
+// import jwt
+import dotenv from "dotenv";
+dotenv.config();
 
 export const patientController = {
-  create: async (req, res) => {
+  async create(req, res) {
     try {
-      const patientId = await Patient.create(req.body);
-      res.json({ message: "Patient created", patientId });
+      const { name, email, phone, password } = req.body;
+
+      console.log("Patient registration attempt:", req.body);
+
+      // 1. Validate input
+      if (!name || !email || !phone || !password) {
+        return res.status(400).json({
+          success: false,
+          message: "All fields (name, email, phone, password) are required",
+        });
+      }
+
+      // 2. Check if email already exists
+      const existingUser = await Patient.findByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({
+          success: false,
+          message: "Email already registered",
+        });
+      }
+
+      // 3. Hash password
+      const hashedPassword = await bcrypt.hash(
+        password,
+        Number(process.env.BCRYPT_SALT_ROUNDS)
+      );
+
+      // 4. Create patient in DB
+      const patientId = await Patient.create({
+        name,
+        email,
+        phone,
+        password: hashedPassword,
+      });
+
+      // 5. Send welcome email
+      await sendEmail({
+        to: email,
+        subject: "Welcome to MediCare!",
+        html: `
+        <h2>Hello ${name}!</h2>
+        <p>Thank you for registering with <strong>MediCare</strong>.</p>
+        <p>Your patient account has been created successfully.</p>
+        <p>You can now book appointments, view doctors, and manage your health.</p>
+        <br>
+        <p>We’re so glad you’re here!</p>
+        <p><strong>The MediCare Team</strong></p>
+      `,
+      });
+
+      // 6. Return success (NO TOKEN HERE)
+      return res.status(201).json({
+        success: true,
+        message: "Patient registered successfully",
+        user: {
+          patient_id: patientId,
+          name,
+          email,
+          phone,
+        },
+      });
     } catch (error) {
-      res.status(500).json({ error: error.message });
+      console.error("Patient registration error:", error);
+
+      if (error.code === "ER_DUP_ENTRY") {
+        return res.status(409).json({
+          success: false,
+          message: "Email already in use",
+        });
+      }
+
+      return res.status(500).json({
+        success: false,
+        message: "Registration failed",
+        error: error.message,
+      });
     }
   },
 

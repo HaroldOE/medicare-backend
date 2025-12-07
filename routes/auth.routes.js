@@ -4,6 +4,7 @@ import { authController } from "../controllers/auth.controller.js";
 
 const router = express.Router();
 router.post("/login", authController.login);
+router.post("/patient-login", authController.patientLogin);
 router.post("/password-reset/request", authController.requestPasswordReset);
 router.post("/password-reset/reset", authController.resetPassword);
 

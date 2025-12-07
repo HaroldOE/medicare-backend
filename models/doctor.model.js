@@ -11,7 +11,7 @@ export const createDoctorsTable = async () => {
 
     // console.log("Doctors table dropped successfully");
 
-    // 2️⃣ Create new table with updated schema
+    // Create table
     await db.query(`
       CREATE TABLE IF NOT EXISTS Doctors (
         doctor_id INT AUTO_INCREMENT PRIMARY KEY,

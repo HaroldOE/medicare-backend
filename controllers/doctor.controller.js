@@ -70,13 +70,14 @@ export const DoctorController = {
       });
 
       res.status(201).json({
+        success: true,
         message: "Doctor created successfully",
         doctorId,
         userId,
       });
     } catch (error) {
       console.error("Error creating doctor:", error);
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ success: false, error: error.message });
     }
   },
 

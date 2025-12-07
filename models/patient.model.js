@@ -2,21 +2,23 @@ import createConnection from "./db.js";
 
 const db = await createConnection();
 
-// Create Patients table
 export const createPatientsTable = async () => {
   try {
+    // await db.query(`SET FOREIGN_KEY_CHECKS = 0`);
+    // await db.query(`DROP TABLE IF EXISTS Patients`);
+    // await db.query(`SET FOREIGN_KEY_CHECKS = 1`);
+
+    console.log("patients table dropped successfully");
+
     await db.query(`
       CREATE TABLE IF NOT EXISTS Patients (
         patient_id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
         name VARCHAR(255) NOT NULL,
-        dob DATE NOT NULL,
-        location VARCHAR(255),
+        email VARCHAR(255) NOT NULL UNIQUE,
         phone VARCHAR(50),
-        medical_history TEXT,
+        password VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
     console.log("Patients table created successfully");
@@ -29,11 +31,11 @@ export const createPatientsTable = async () => {
 // Patients model
 export const Patient = {
   async create(data) {
-    const { user_id, name, dob, location, phone, medical_history } = data;
+    const { name, email, phone, password } = data;
     const [result] = await db.execute(
-      `INSERT INTO Patients (user_id, name, dob, location, phone, medical_history)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [user_id, name, dob, location, phone, medical_history]
+      `INSERT INTO Patients (name, email, phone, password)
+       VALUES (?, ?, ?, ?)`,
+      [name, email, phone, password]
     );
     return result.insertId;
   },
@@ -50,6 +52,12 @@ export const Patient = {
       "SELECT * FROM Patients WHERE patient_id = ?",
       [patient_id]
     );
+    return rows[0];
+  },
+  async findByEmail(email) {
+    const [rows] = await db.query(" SELECT * FROM Patients WHERE email = ?", [
+      email,
+    ]);
     return rows[0];
   },
 

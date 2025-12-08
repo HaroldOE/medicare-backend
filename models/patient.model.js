@@ -4,26 +4,29 @@ const db = await createConnection();
 
 export const createPatientsTable = async () => {
   try {
-    // await db.query(`SET FOREIGN_KEY_CHECKS = 0`);
-    // await db.query(`DROP TABLE IF EXISTS Patients`);
-    // await db.query(`SET FOREIGN_KEY_CHECKS = 1`);
-
-    // console.log("patients table dropped successfully");
-
     await db.query(`
       CREATE TABLE IF NOT EXISTS Patients (
-        patient_id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL UNIQUE,
-        phone VARCHAR(50),
-        password VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
+        id                INT AUTO_INCREMENT PRIMARY KEY,
+        patient_id        VARCHAR(10) UNIQUE NOT NULL,
+        name              VARCHAR(255) NOT NULL,
+        email             VARCHAR(255) NOT NULL UNIQUE,
+        phone             VARCHAR(50),
+        password          VARCHAR(255),                   
+        dob               DATE NULL,
+        location          VARCHAR(255) NULL,
+        medical_history   TEXT NULL,
+        created_at        DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at        DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_patient_id (patient_id),
+        INDEX idx_email (email)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
     `);
+
     console.log("Patients table created successfully");
   } catch (error) {
-    console.error("Error creating Patients table", error);
+    console.error("Error creating Patients table:", error);
+    // Make sure FK checks are turned back on even if something fails
+    // await db.query(`SET FOREIGN_KEY_CHECKS = 1;`).catch(() => {});
     throw error;
   }
 };

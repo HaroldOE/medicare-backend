@@ -7,21 +7,28 @@ export const AppointmentModel = {
   createAppointmentTable: async () => {
     try {
       await db.query(`
-        CREATE TABLE IF NOT EXISTS Appointments (
-          appointment_id INT AUTO_INCREMENT PRIMARY KEY,
-          patient_id INT NOT NULL,
-          doctor_id INT NOT NULL,
-          appointment_date DATETIME NOT NULL,
-          reason TEXT,
-          status ENUM('pending', 'approved', 'cancelled', 'completed') DEFAULT 'pending',
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (patient_id) REFERENCES Patients(patient_id) ON DELETE CASCADE,
-          FOREIGN KEY (doctor_id) REFERENCES Doctors(doctor_id) ON DELETE CASCADE
-        )
-      `);
-      console.log("Appointments table created or already exists");
-    } catch (err) {
-      console.error("Error creating Appointments table:", err);
+      CREATE TABLE IF NOT EXISTS Appointments (
+        appointment_id VARCHAR(10) PRIMARY KEY,
+        patient_id VARCHAR(10) NOT NULL,
+        doctor_id VARCHAR(10) NOT NULL,
+        appointment_date DATETIME NOT NULL,
+        reason TEXT,
+        status ENUM('pending', 'approved', 'cancelled', 'completed') DEFAULT 'pending',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+        FOREIGN KEY (patient_id) REFERENCES Patients(patient_id) ON DELETE CASCADE,
+        FOREIGN KEY (doctor_id) REFERENCES Doctors(doctor_id) ON DELETE CASCADE,
+
+        INDEX idx_patient (patient_id),
+        INDEX idx_doctor (doctor_id),
+        INDEX idx_date (appointment_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+      console.log("Appointments table created successfully");
+    } catch (error) {
+      console.error("Error creating Appointments table:", error);
+      throw error;
     }
   },
 

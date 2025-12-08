@@ -1,477 +1,232 @@
-// // helpers/importExcelHelper.js
-// import XLSX from "xlsx";
-// import bcrypt from "bcrypt";
-// import createConnection from "../models/db.js";
-// import ExcelJS from "exceljs";
-// // import pool from '../models/db.js';
+// excel.helper.js (ESM - FINAL & CORRECTED)
 
-// const pool = await createConnection();
-
-// /* ---------------------- PASSWORD HASHER ---------------------- */
-// const hashPassword = async (plainPassword) => {
-//   if (!plainPassword || plainPassword.trim() === "") return null;
-//   return await bcrypt.hash(plainPassword.trim(), 10);
-// };
-
-// /* ---------------------- EXCEL DATE HANDLER ---------------------- */
-// // Convert Excel serial date to YYYY-MM-DD
-// const excelDateToJSDate = (serial) => {
-//   if (!serial || typeof serial !== "number") return null;
-
-//   const utcDays = Math.floor(serial - 25569);
-//   const utcValue = utcDays * 86400 * 1000;
-//   const dateInfo = new Date(utcValue);
-
-//   const fractionalDay = serial - Math.floor(serial) + 0.0000001;
-//   const msInDay = fractionalDay * 24 * 60 * 60 * 1000;
-
-//   dateInfo.setTime(dateInfo.getTime() + msInDay);
-//   return dateInfo.toISOString().split("T")[0];
-// };
-
-// /* ---------------------- UNIVERSAL DOB PARSER ---------------------- */
-// const parseDOB = (value) => {
-//   if (!value) return null;
-
-//   // Excel serial number
-//   if (typeof value === "number") return excelDateToJSDate(value);
-
-//   // ISO format YYYY-MM-DD (already valid)
-//   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-
-//   // Try converting other string formats (12/30/2025 etc.)
-//   const parsed = new Date(value);
-//   if (!isNaN(parsed)) return parsed.toISOString().split("T")[0];
-
-//   return null;
-// };
-
-// /* ---------------------- MAIN IMPORT FUNCTION ---------------------- */
-// export const importPatientsAndDoctors = async (workbook) => {
-//   const results = {
-//     patientsImported: 0,
-//     doctorsImported: 0,
-//     skipped: [],
-//     errors: [],
-//   };
-
-//   const connection = await pool.getConnection();
-//   await connection.beginTransaction();
-
-//   try {
-//     /* ---------------------- PROCESS PATIENTS ---------------------- */
-//     if (workbook.SheetNames.includes("Patients")) {
-//       const sheet = workbook.Sheets["Patients"];
-//       const data = XLSX.utils.sheet_to_json(sheet, { defval: null });
-
-//       for (const row of data) {
-//         const email = row.email_address?.trim();
-//         const passwordPlain = row.password;
-//         const name = row.full_name?.trim();
-//         const phone = row.phone?.toString().trim() || null;
-//         const location = row.location?.trim() || null;
-//         const medicalHistory = row.medical_history?.trim() || null;
-//         const dob = parseDOB(row.dob); // ✔ FIXED
-
-//         if (!email || !name) {
-//           results.skipped.push(`Patient skipped: missing email or name`);
-//           continue;
-//         }
-
-//         try {
-//           const [existingUsers] = await connection.execute(
-//             "SELECT user_id FROM Users WHERE email = ?",
-//             [email]
-//           );
-
-//           let userId;
-
-//           if (existingUsers.length > 0) {
-//             userId = existingUsers[0].user_id;
-//           } else {
-//             const hashedPassword = await hashPassword(passwordPlain);
-//             const [insertResult] = await connection.execute(
-//               "INSERT INTO Users (email, password, role) VALUES (?, ?, ?)",
-//               [email, hashedPassword, "patient"]
-//             );
-//             userId = insertResult.insertId;
-//           }
-
-//           await connection.execute(
-//             `INSERT INTO Patients (user_id, name, dob, location, phone, medical_history)
-//              VALUES (?, ?, ?, ?, ?, ?)
-//              ON DUPLICATE KEY UPDATE
-//              name = VALUES(name),
-//              dob = VALUES(dob),
-//              location = VALUES(location),
-//              phone = VALUES(phone),
-//              medical_history = VALUES(medical_history)`,
-//             [userId, name, dob, location, phone, medicalHistory]
-//           );
-
-//           results.patientsImported++;
-//         } catch (err) {
-//           results.errors.push(`Patient ${email}: ${err.message}`);
-//         }
-//       }
-//     }
-
-//     /* ---------------------- PROCESS DOCTORS ---------------------- */
-//     if (workbook.SheetNames.includes("Doctors")) {
-//       const sheet = workbook.Sheets["Doctors"];
-//       const data = XLSX.utils.sheet_to_json(sheet, { defval: null });
-
-//       for (const row of data) {
-//         const email = row.email?.trim();
-//         const passwordPlain = row.password;
-//         const name = row.full_name?.trim();
-//         const specialization = row.specialization || null;
-//         const license = row.license || null;
-//         const availability = row.availability || "Available";
-//         const rating = row.rating || 0;
-//         const dob = parseDOB(row.dob); // ✔ FIXED
-
-//         if (!email || !name) {
-//           results.skipped.push(`Doctor skipped: missing email or name`);
-//           continue;
-//         }
-
-//         try {
-//           const [existingUsers] = await connection.execute(
-//             "SELECT user_id FROM Users WHERE email = ?",
-//             [email]
-//           );
-
-//           let userId;
-
-//           if (existingUsers.length > 0) {
-//             userId = existingUsers[0].user_id;
-//           } else {
-//             const hashedPassword = await hashPassword(passwordPlain);
-//             const [insertResult] = await connection.execute(
-//               "INSERT INTO Users (email, password, role) VALUES (?, ?, ?)",
-//               [email, hashedPassword, "doctor"]
-//             );
-//             userId = insertResult.insertId;
-//           }
-
-//           await connection.execute(
-//             `INSERT INTO Doctors ( name, specialization, license, availability, rating, dob)
-//              VALUES (?, ?, ?, ?, ?, ?)
-//              ON DUPLICATE KEY UPDATE
-//              name = VALUES(name),
-//              specialization = VALUES(specialization),
-//              license = VALUES(license),
-//              availability = VALUES(availability),
-//              rating = VALUES(rating),
-//              dob = VALUES(dob)`,
-//             [name, specialization, license, availability, rating, dob]
-//           );
-
-//           results.doctorsImported++;
-//         } catch (err) {
-//           results.errors.push(`Doctor ${email}: ${err.message}`);
-//         }
-//       }
-//     }
-
-//     /* ---------------------- FINISH ---------------------- */
-//     await connection.commit();
-//     connection.release();
-//     return results;
-//   } catch (err) {
-//     await connection.rollback();
-//     connection.release();
-//     throw err;
-//   }
-// };
-
-// // EXPORT
-// export const generateExcelWorkbook = async () => {
-//   const workbook = new ExcelJS.Workbook();
-
-//   // === Patients Sheet ===
-//   const patientsSheet = workbook.addWorksheet("Patients");
-
-//   patientsSheet.columns = [
-//     { header: "Patient ID", key: "patient_id", width: 15 },
-//     { header: "Full Name", key: "name", width: 25 },
-//     { header: "Email", key: "email", width: 30 },
-//     { header: "Phone", key: "phone", width: 18 },
-//     { header: "DOB", key: "dob", width: 15 },
-//     { header: "Location", key: "location", width: 25 },
-//     { header: "Medical History", key: "medical_history", width: 30 },
-//     { header: "Created At", key: "created_at", width: 20 },
-//   ];
-
-//   const [patients] = await pool.query(`
-//     SELECT
-//       p.patient_id,
-//       p.name,
-//       u.email,
-//       p.phone,
-//       p.dob,
-//       p.location,
-//       p.medical_history,
-//       p.created_at
-//     FROM Patients p
-//     JOIN Users u ON p.user_id = u.user_id
-//     ORDER BY p.patient_id
-//   `);
-
-//   patients.forEach((patient) => {
-//     patientsSheet.addRow({
-//       ...patient,
-//       dob: patient.dob ? new Date(patient.dob).toISOString().split("T")[0] : "",
-//       created_at: new Date(patient.created_at).toLocaleString(),
-//     });
-//   });
-
-//   // === Doctors Sheet ===
-//   const doctorsSheet = workbook.addWorksheet("Doctors");
-
-//   doctorsSheet.columns = [
-//     { header: "Doctor ID", key: "doctor_id", width: 15 },
-//     { header: "Full Name", key: "name", width: 25 },
-//     { header: "Email", key: "email", width: 30 },
-//     { header: "Phone", key: "phone_number", width: 18 },
-//     { header: "Location", key: "location", width: 25 },
-//     { header: "DOB", key: "dob", width: 15 },
-//     { header: "Specialization", key: "specialization", width: 20 },
-//     { header: "License", key: "license", width: 15 },
-//     { header: "Availability", key: "availability", width: 15 },
-//     { header: "Rating", key: "rating", width: 10 },
-//     { header: "Created At", key: "created_at", width: 20 },
-//   ];
-
-//   const [doctors] = await pool.query(`
-//     SELECT
-//       d.doctor_id,
-//       d.name,
-//       u.email,
-//       d.phone_number,
-//       d.location,
-//       d.dob,
-//       d.specialization,
-//       d.license,
-//       d.availability,
-//       d.rating,
-//       d.created_at
-//     FROM Doctors d
-//     JOIN Users u ON d.user_id = u.user_id
-//     ORDER BY d.doctor_id
-//   `);
-
-//   doctors.forEach((doctor) => {
-//     doctorsSheet.addRow({
-//       ...doctor,
-//       dob: doctor.dob ? new Date(doctor.dob).toISOString().split("T")[0] : "",
-//       created_at: new Date(doctor.created_at).toLocaleString(),
-//     });
-//   });
-
-//   return workbook;
-// };
-
-// helper/excel.helper.js
-import XLSX from "xlsx";
-import bcrypt from "bcrypt";
-import createConnection from "../models/db.js";
 import ExcelJS from "exceljs";
 
-/* ---------------------- PASSWORD HASHER ---------------------- */
-const hashPassword = async (plainPassword) => {
-  if (!plainPassword || plainPassword.trim() === "") return null;
-  return await bcrypt.hash(plainPassword.trim(), 10);
+/**
+ * Maps ACTUAL CSV/EXCEL headers to database column names for injection.
+ */
+const columnMappings = {
+  Doctors: {
+    doctor_id: "doctor_id",
+    full_name: "name", // Mapped from CSV 'full_name'
+    email: "email",
+    phone_number: "phone_number",
+    location: "location",
+    dob: "dob",
+    specialization: "specialization",
+    license: "license",
+    availability: "availability",
+    rating: "rating",
+    password: "password",
+    // Columns like 'created_at' are auto-excluded.
+  },
+  Patients: {
+    patient_id: "patient_id",
+    full_name: "name", // Mapped from CSV 'full_name'
+    email_address: "email", // Mapped from CSV 'email_address'
+    phone: "phone",
+    password: "password",
+    dob: "dob",
+    location: "location",
+    medical_history: "medical_history",
+    // Columns like 'created_at', 'updated_visit' are auto-excluded.
+  },
+  Appointments: {
+    appointment_id: "appointment_id",
+    patient_id: "patient_id",
+    doctor_id: "doctor_id",
+    date: "date_part", // Temporary key for transformation
+    time: "time_part", // Temporary key for transformation
+    // Note: 'reason' is missing in CSV, will be null in DB
+    status: "status",
+    // Columns like 'location', 'created_at' are auto-excluded.
+  },
+  Consultation: {
+    patient_id: "patient_id",
+    doctor_id: "doctor_id",
+    date: "date", // Maps directly to DB DATETIME
+    symptoms: "symptoms",
+    diagnosis: "diagnosis",
+    prescription: "prescription",
+    // Columns like 'consult_id' (auto-increment), 'created_at' are auto-excluded.
+  },
 };
 
-/* ---------------------- MAIN IMPORT FUNCTION ---------------------- */
-export const importPatientsAndDoctors = async (workbook) => {
-  const results = {
-    patientsImported: 0,
-    doctorsImported: 0,
-    skipped: [],
-    errors: [],
-  };
-  const pool = await createConnection();
-  const connection = await pool.getConnection();
-  await connection.beginTransaction();
-
-  try {
-    const patientSheetName = workbook.SheetNames.find(
-      (s) => s.trim() === "Patients"
-    );
-    const doctorSheetName = workbook.SheetNames.find(
-      (s) => s.trim() === "Doctors"
-    );
-
-    // PATIENTS – ONLY COLUMNS THAT EXIST IN YOUR TABLE!
-    if (patientSheetName) {
-      const data = XLSX.utils.sheet_to_json(workbook.Sheets[patientSheetName], {
-        defval: null,
-      });
-
-      for (const row of data) {
-        const email = row.email_address?.trim();
-        const passwordPlain = row.password;
-        const name = row.full_name?.trim();
-        const phone = row.phone?.toString().trim() || null;
-
-        if (!email || !name) {
-          results.skipped.push(`Patient skipped: missing email/name`);
-          continue;
-        }
-
-        try {
-          const hashedPassword = passwordPlain
-            ? await hashPassword(passwordPlain)
-            : null;
-
-          await connection.execute(
-            `INSERT INTO Patients (name, email, phone, password)
-             VALUES (?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-               name = VALUES(name),
-               phone = VALUES(phone),
-               password = COALESCE(VALUES(password), password)`,
-            [name, email, phone, hashedPassword]
-          );
-
-          results.patientsImported++;
-        } catch (err) {
-          results.errors.push(`Patient ${email}: ${err.message}`);
-        }
-      }
-    }
-
-    // DOCTORS – YOUR DOCTORS TABLE HAS THESE COLUMNS
-    if (doctorSheetName) {
-      const data = XLSX.utils.sheet_to_json(workbook.Sheets[doctorSheetName], {
-        defval: null,
-      });
-
-      for (const row of data) {
-        const email = row.email?.trim();
-        const passwordPlain = row.password;
-        const name = row.full_name?.trim();
-        const phone = row.phone_number?.toString().trim() || null;
-        const location = row.location?.trim() || null;
-        const specialization = row.specialization || null;
-        const license = row.license || null;
-        const availability = row.availability || "Available";
-        const rating = row.rating || 0;
-        const dobRaw = row.dob;
-        const dob =
-          typeof dobRaw === "number"
-            ? new Date((dobRaw - 25569) * 86400 * 1000)
-                .toISOString()
-                .split("T")[0]
-            : dobRaw || null;
-
-        if (!email || !name) {
-          results.skipped.push(`Doctor skipped: missing email/name`);
-          continue;
-        }
-
-        try {
-          const hashedPassword = passwordPlain
-            ? await hashPassword(passwordPlain)
-            : null;
-
-          await connection.execute(
-            `INSERT INTO Doctors 
-             (name, email, phone_number, location, dob, specialization, license, availability, rating, password)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON DUPLICATE KEY UPDATE
-               name = VALUES(name), phone_number = VALUES(phone_number), location = VALUES(location),
-               dob = VALUES(dob), specialization = VALUES(specialization), license = VALUES(license),
-               availability = VALUES(availability), rating = VALUES(rating),
-               password = COALESCE(VALUES(password), password)`,
-            [
-              name,
-              email,
-              phone,
-              location,
-              dob,
-              specialization,
-              license,
-              availability,
-              rating,
-              hashedPassword,
-            ]
-          );
-
-          results.doctorsImported++;
-        } catch (err) {
-          results.errors.push(`Doctor ${email}: ${err.message}`);
-        }
-      }
-    }
-
-    await connection.commit();
-    return results;
-  } catch (err) {
-    await connection.rollback();
-    throw err;
-  } finally {
-    connection.release();
-  }
-};
-
-/* ---------------------- EXPORT FUNCTION ---------------------- */
-export const generateExcelWorkbook = async () => {
+/**
+ * Reads a specific sheet from the Excel buffer and transforms the data for DB insertion.
+ */
+export async function readExcelSheet(excelBuffer, sheetName) {
   const workbook = new ExcelJS.Workbook();
-  const pool = await createConnection();
-  const connection = await pool.getConnection();
+  await workbook.xlsx.load(excelBuffer);
 
-  try {
-    // Patients
-    const patientsSheet = workbook.addWorksheet("Patients");
-    patientsSheet.columns = [
-      { header: "Patient ID", key: "patient_id", width: 15 },
-      { header: "Full Name", key: "name", width: 25 },
-      { header: "Email", key: "email", width: 30 },
-      { header: "Phone", key: "phone", width: 18 },
-      { header: "Created At", key: "created_at", width: 20 },
-    ];
-
-    const [patients] = await connection.query(
-      `SELECT patient_id, name, email, phone, created_at FROM Patients`
+  const worksheet = workbook.getWorksheet(sheetName);
+  if (!worksheet) {
+    // Fallback for case sensitivity or slight naming variations
+    const possibleSheetName = Object.keys(columnMappings).find(
+      (key) => key.toLowerCase() === sheetName.toLowerCase()
     );
-    patients.forEach((p) =>
-      patientsSheet.addRow({
-        ...p,
-        created_at: new Date(p.created_at).toLocaleString(),
-      })
-    );
-
-    // Doctors
-    const doctorsSheet = workbook.addWorksheet("Doctors");
-    doctorsSheet.columns = [
-      { header: "Doctor ID", key: "doctor_id", width: 15 },
-      { header: "Full Name", key: "name", width: 25 },
-      { header: "Email", key: "email", width: 30 },
-      { header: "Phone", key: "phone_number", width: 18 },
-      { header: "Location", key: "location", width: 25 },
-      { header: "DOB", key: "dob", width: 15 },
-      { header: "Specialization", key: "specialization", width: 20 },
-      { header: "License", key: "license", width: 15 },
-      { header: "Availability", key: "availability", width: 15 },
-      { header: "Rating", key: "rating", width: 10 },
-      { header: "Created At", key: "created_at", width: 20 },
-    ];
-
-    const [doctors] = await connection.query(`SELECT * FROM Doctors`);
-    doctors.forEach((d) =>
-      doctorsSheet.addRow({
-        ...d,
-        dob: d.dob ? new Date(d.dob).toISOString().split("T")[0] : "",
-        created_at: new Date(d.created_at).toLocaleString(),
-      })
-    );
-
-    return workbook;
-  } finally {
-    connection.release();
+    if (possibleSheetName) sheetName = possibleSheetName;
+    else throw new Error(`Sheet named "${sheetName}" not found.`);
   }
-};
+
+  const headerRow = worksheet.getRow(1);
+  const headers = [];
+  headerRow.eachCell((cell) => headers.push(cell.text));
+
+  const mapping = columnMappings[sheetName];
+
+  const data = [];
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return; // Skip header row
+
+    const rowData = {};
+    let tempDatePart = null;
+    let tempTimePart = null;
+    let isEmptyRow = true;
+
+    row.eachCell((cell, colNumber) => {
+      const excelHeader = headers[colNumber - 1];
+      const dbColumn = mapping[excelHeader];
+
+      if (!dbColumn) return; // Skip unmapped columns (like created_at, consult_id, location in Appointments)
+
+      let cellValue = cell.value;
+
+      // --- Special Handling for Appointments Date/Time Combination ---
+      if (sheetName === "Appointments") {
+        if (dbColumn === "date_part") {
+          tempDatePart = cellValue;
+          return;
+        }
+        if (dbColumn === "time_part") {
+          tempTimePart = cellValue;
+          return;
+        }
+      }
+
+      // --- Default Value Transformation ---
+      if (dbColumn.includes("date") || dbColumn.includes("dob")) {
+        if (cellValue instanceof Date) {
+          rowData[dbColumn] = cellValue.toISOString().slice(0, 10); // DATE format
+        } else if (typeof cellValue === "number" && cell.isDate) {
+          const excelDate = new Date(Date.UTC(0, 0, cellValue - 1));
+          rowData[dbColumn] = excelDate.toISOString().slice(0, 10);
+        } else {
+          rowData[dbColumn] = String(cellValue || "").trim() || null;
+        }
+      } else if (dbColumn === "rating") {
+        rowData[dbColumn] = parseFloat(cellValue) || 0.0;
+      } else {
+        rowData[dbColumn] = cellValue != null ? String(cellValue).trim() : null;
+      }
+
+      if (rowData[dbColumn] !== null && String(rowData[dbColumn]).length > 0) {
+        isEmptyRow = false;
+      }
+    });
+
+    // --- Post-Row Processing for Appointments (Combining Date and Time) ---
+    if (sheetName === "Appointments" && tempDatePart) {
+      isEmptyRow = false; // Row must have a date/time
+
+      let dateStr =
+        tempDatePart instanceof Date
+          ? tempDatePart.toISOString().slice(0, 10)
+          : String(tempDatePart);
+      let timeStr =
+        tempTimePart instanceof Date
+          ? tempTimePart.toISOString().slice(11, 19)
+          : String(tempTimePart);
+
+      // Handle time part formatting (Excel often gives date objects for time)
+      if (timeStr && timeStr.includes(":")) {
+        // Time is already formatted (e.g., HH:mm:ss)
+      } else if (timeStr && timeStr.length > 5 && timeStr.length < 10) {
+        // Common case where time is stored as fractional day (0.xx) in cell.value
+        const timeObject = new Date(
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          timeStr * 24 * 3600 * 1000
+        );
+        timeStr = timeObject.toISOString().slice(11, 19);
+      } else {
+        // Fallback or if time is a simple string
+        timeStr = tempTimePart || "00:00:00";
+      }
+
+      rowData["appointment_date"] = `${dateStr} ${timeStr}`;
+
+      // Remove temporary keys if they somehow made it into rowData
+      delete rowData.date_part;
+      delete rowData.time_part;
+    }
+
+    if (!isEmptyRow && Object.keys(rowData).length > 0) {
+      data.push(rowData);
+    }
+  });
+
+  return data;
+}
+
+/**
+ * Constructs a single INSERT statement for batch insertion.
+ */
+export function buildBatchInsert(tableName, data) {
+  if (data.length === 0) {
+    return { sql: "", values: [] };
+  }
+
+  // Filter out auto-increment keys if present
+  const columns = Object.keys(data[0]).filter(
+    (col) => col !== "consult_id" && col !== "id"
+  );
+
+  const placeholders = `(${columns.map(() => "?").join(", ")})`;
+  const valuePlaceholders = data.map(() => placeholders).join(", ");
+
+  const sql = `INSERT INTO ${tableName} (${columns.join(
+    ", "
+  )}) VALUES ${valuePlaceholders}`;
+  const values = data.flatMap((row) => columns.map((col) => row[col]));
+
+  return { sql, values };
+}
+
+/**
+ * Generates an Excel file buffer from database results. (Used for Export)
+ */
+export async function generateExcel(dataSets) {
+  const workbook = new ExcelJS.Workbook();
+
+  for (const dataSet of dataSets) {
+    const { sheetName, data } = dataSet;
+    if (data.length === 0) continue;
+
+    const worksheet = workbook.addWorksheet(sheetName);
+
+    const columns = Object.keys(data[0]).map((key) => ({
+      header: key.replace(/_/g, " ").toUpperCase(),
+      key: key,
+      width: 25,
+    }));
+
+    worksheet.columns = columns;
+    worksheet.addRows(data);
+
+    worksheet.getRow(1).eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE0E0E0" },
+      };
+    });
+  }
+
+  return workbook.xlsx.writeBuffer();
+}

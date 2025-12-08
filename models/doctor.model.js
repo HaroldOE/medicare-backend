@@ -6,62 +6,34 @@ const db = await createConnection();
 
 export const createDoctorsTable = async () => {
   try {
-    // await db.query(`SET FOREIGN_KEY_CHECKS = 0`);
-    // await db.query(`DROP TABLE IF EXISTS Doctors`);
-    // await db.query(`SET FOREIGN_KEY_CHECKS = 1`);
-
-    // console.log("Doctors table dropped successfully");
-
-    // Create table
     await db.query(`
       CREATE TABLE IF NOT EXISTS Doctors (
-        doctor_id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL,
-        specialization VARCHAR(255),
-        license VARCHAR(100),
-        availability VARCHAR(255),
-        dob DATE NOT NULL,
-        phone_number VARCHAR(50),
-        location VARCHAR(255),
-        rating DECIMAL(3,2) DEFAULT 0,
-        password VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
+        id               INT AUTO_INCREMENT PRIMARY KEY,
+        doctor_id        VARCHAR(10) UNIQUE NOT NULL,
+        name             VARCHAR(255) NOT NULL,
+        email            VARCHAR(255) NOT NULL UNIQUE,
+        specialization   VARCHAR(255),
+        license          VARCHAR(100),
+        availability     ENUM('Available', 'Busy', 'On Leave') DEFAULT 'Available',
+        dob              DATE NULL,
+        phone_number     VARCHAR(50),
+        location         VARCHAR(255) NULL DEFAULT NULL,   -- Explicitly allows NULL
+        rating           DECIMAL(3,2) DEFAULT 0.00,
+        password         VARCHAR(255),
+        created_at       DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at       DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+        INDEX idx_doctor_id (doctor_id),
+        INDEX idx_email (email)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
+
     console.log("Doctors table created successfully");
   } catch (error) {
-    console.error("Error creating Doctors table", error);
+    console.error("Error creating Doctors table:", error);
     throw error;
   }
 };
-
-export const addIsLiveColumnToDoctors = async () => {
-  try {
-    // Check if column already exists (optional)
-    const [rows] = await db.query(`
-      SHOW COLUMNS FROM Doctors LIKE 'is_live'
-    `);
-
-    if (rows.length === 0) {
-      await db.query(`
-        ALTER TABLE Doctors
-        ADD COLUMN is_live BOOLEAN DEFAULT FALSE
-      `);
-      console.log("is_live column added to Doctors table successfully");
-    } else {
-      console.log("is_live column already exists in Doctors table");
-    }
-  } catch (error) {
-    console.error("Error altering Doctors table:", error);
-    throw error;
-  }
-};
-
-// Call this function somewhere in your setup
-await addIsLiveColumnToDoctors();
-
 // Doctors model
 export const Doctor = {
   async create(data) {
@@ -70,34 +42,48 @@ export const Doctor = {
       email,
       specialization,
       license,
-      availability,
+      availability = "Available",
       phone_number,
       dob,
-      location,
-      rating = 0,
+      location = null, // ← fallback to NULL if not provided
+      rating = 0.0,
       password,
     } = data;
 
+    // Auto-generate doctor_id: D001, D002, D003...
+    const [last] = await db.execute(
+      `SELECT doctor_id FROM Doctors ORDER BY id DESC LIMIT 1`
+    );
+
+    let nextNumber = 1;
+    if (last.length > 0) {
+      nextNumber = parseInt(last[0].doctor_id.replace("D", "")) + 1;
+    }
+    const doctor_id = `D${String(nextNumber).padStart(3, "0")}`;
+
     const [result] = await db.execute(
       `INSERT INTO Doctors 
-    (name, email, specialization, license, availability, phone_number, dob, rating, location, password)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     (doctor_id, name, email, specialization, license, availability, 
+      phone_number, dob, location, rating, password)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
+        doctor_id,
         name,
         email,
-        specialization,
-        license,
+        specialization || null,
+        license || null,
         availability,
-        phone_number,
-        dob,
+        phone_number || null,
+        dob || null,
+        location || null, // ← safely inserts NULL if missing
         rating,
-        location,
         password,
       ]
     );
 
-    return result.insertId;
+    return { insertId: result.insertId, doctor_id };
   },
+
   async findAll() {
     const [rows] = await db.execute(
       "SELECT * FROM Doctors ORDER BY created_at DESC"
@@ -114,17 +100,34 @@ export const Doctor = {
   },
 
   async update(doctor_id, data) {
-    const fields = Object.keys(data);
-    const values = Object.values(data);
-    if (!fields.length) return 0;
+    const allowedFields = [
+      "name",
+      "email",
+      "specialization",
+      "license",
+      "availability",
+      "phone_number",
+      "dob",
+      "location",
+      "rating",
+      "password",
+    ];
 
-    const setStr =
-      fields.map((f) => `${f} = ?`).join(", ") +
-      ", updated_at = CURRENT_TIMESTAMP";
+    const fields = Object.keys(data).filter(
+      (f) => allowedFields.includes(f) && data[f] !== undefined
+    );
+
+    if (fields.length === 0) return 0;
+
+    const values = fields.map((f) => (data[f] === undefined ? null : data[f]));
+    const setClause = fields.map((f) => `${f} = ?`).join(", ");
+
     const [result] = await db.execute(
-      `UPDATE Doctors SET ${setStr} WHERE doctor_id = ?`,
+      `UPDATE Doctors SET ${setClause}, updated_at = CURRENT_TIMESTAMP 
+     WHERE doctor_id = ?`,
       [...values, doctor_id]
     );
+
     return result.affectedRows;
   },
 

@@ -1,7 +1,7 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-
+import fileUpload from "express-fileupload";
 // import endpoints
 import userRouter from "./routes/user.routes.js";
 import patientRouter from "./routes/patient.route.js";
@@ -17,7 +17,7 @@ import { createPatientsTable } from "./models/patient.model.js";
 import { createUsersTable } from "./models/user.model.js";
 import { createInventoryTable } from "./models/inventory.model.js";
 import { createConsultationTable } from "./models/consultation.model.js";
-import { addIsLiveColumnToDoctors } from "./models/doctor.model.js";
+// import { addIsLiveColumnToDoctors } from "./models/doctor.model.js";
 import { AppointmentModel } from "./models/appointment.model.js";
 
 dotenv.config();
@@ -35,6 +35,14 @@ await createInventoryTable();
 await createConsultationTable();
 await AppointmentModel.createAppointmentTable();
 // await addIsLiveColumnToDoctors();
+
+app.use(
+  fileUpload({
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+    tempFileDir: "/tmp/",
+    useTempFiles: true,
+  })
+);
 
 // define routes
 app.use("/api/user", userRouter);

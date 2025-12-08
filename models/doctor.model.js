@@ -6,19 +6,28 @@ const db = await createConnection();
 
 export const createDoctorsTable = async () => {
   try {
+    // await db.query(`SET FOREIGN_KEY_CHECKS = 0`);
+    // await db.query(`DROP TABLE IF EXISTS Doctors`);
+    // await db.query(`SET FOREIGN_KEY_CHECKS = 1`);
+
+    // console.log("Doctors table dropped successfully");
+
+    // Create table
     await db.query(`
       CREATE TABLE IF NOT EXISTS Doctors (
         doctor_id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
         name VARCHAR(255) NOT NULL,
+        email VARCHAR(255) NOT NULL,
         specialization VARCHAR(255),
         license VARCHAR(100),
         availability VARCHAR(255),
+        dob DATE NOT NULL,
+        phone_number VARCHAR(50),
+        location VARCHAR(255),
         rating DECIMAL(3,2) DEFAULT 0,
-        is_live BOOLEAN DEFAULT FALSE,
+        password VARCHAR(255),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES Users(user_id) ON DELETE CASCADE
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       )
     `);
     console.log("Doctors table created successfully");
@@ -57,22 +66,38 @@ await addIsLiveColumnToDoctors();
 export const Doctor = {
   async create(data) {
     const {
-      user_id,
       name,
+      email,
       specialization,
       license,
       availability,
+      phone_number,
+      dob,
+      location,
       rating = 0,
-      is_live = false,
+      password,
     } = data;
+
     const [result] = await db.execute(
-      `INSERT INTO Doctors (user_id, name, specialization, license, availability, rating, is_live)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [user_id, name, specialization, license, availability, rating, is_live]
+      `INSERT INTO Doctors 
+    (name, email, specialization, license, availability, phone_number, dob, rating, location, password)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        name,
+        email,
+        specialization,
+        license,
+        availability,
+        phone_number,
+        dob,
+        rating,
+        location,
+        password,
+      ]
     );
+
     return result.insertId;
   },
-
   async findAll() {
     const [rows] = await db.execute(
       "SELECT * FROM Doctors ORDER BY created_at DESC"

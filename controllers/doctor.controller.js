@@ -1,35 +1,85 @@
 import { Doctor } from "../models/doctor.model.js";
 
+// import { Doctor } from "../models/doctor.model.js";
+import { User } from "../models/user.model.js"; // assumes you have User model
+import bcrypt from "bcrypt";
+import { sendEmail } from "../core/email.js";
+
+const BCRYPT_SALT_ROUNDS = parseInt(process.env.BCRYPT_SALT_ROUNDS || "10", 10);
 export const DoctorController = {
   // Create a doctor
+  async create(req, res) {
+    try {
+      const {
+        name,
+        email,
+        specialization,
+        license,
+        availability,
+        dob,
+        phone_number,
+        location,
+        rating,
+        password,
+      } = req.body;
+      console.log(req.body);
+      if (!name || !email || !password || !dob) {
+        return res
+          .status(400)
+          .json({ error: "Name, email, password, and DOB are required" });
+      }
 
-  async create(data) {
-    const {
-      user_id,
-      name,
-      specialization,
-      license,
-      availability,
-      rating = 0,
-      is_live = false,
-    } = data;
-    const [result] = await db.execute(
-      `INSERT INTO Doctors (user_id, name, specialization, license, availability, rating, is_live)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [user_id, name, specialization, license, availability, rating, is_live]
-    );
-    return result.insertId;
+      // 1️⃣ Check if user already exists
+      const existingUser = await User.findByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ error: "Email already registered" });
+      }
+
+      // 2️⃣ Create the user
+      const hashedPassword = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+      const userId = await User.create({
+        name,
+        email,
+        password: hashedPassword,
+        role: "doctor",
+      });
+
+      // 3️⃣ Create doctor record
+      const doctorId = await Doctor.create({
+        name,
+        email,
+        specialization,
+        license,
+        availability,
+        dob,
+        phone_number,
+        location,
+        rating: rating ?? 0,
+        password,
+        user_id: userId, // optional if you want to store link
+      });
+
+      // 4️⃣ Optional: send welcome email
+      await sendEmail({
+        to: email,
+        subject: "Welcome to MediCare",
+        html: `<p>Hello Dr. ${name},</p>
+               <p>Your account has been created successfully.</p>
+               <p>Email: ${email}</p>
+               <p>Please keep your password safe.</p>`,
+      });
+
+      res.status(201).json({
+        success: true,
+        message: "Doctor created successfully",
+        doctorId,
+        userId,
+      });
+    } catch (error) {
+      console.error("Error creating doctor:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
   },
-
-  // async create(req, res) {
-  //   try {
-  //     const doctorId = await Doctor.create(req.body);
-  //     res.json({ message: "Doctor created successfully", doctorId });
-  //   } catch (error) {
-  //     console.error("Error creating doctor:", error);
-  //     res.status(500).json({ error: error.message });
-  //   }
-  // },
 
   // Get all doctors
   async findAll(req, res) {

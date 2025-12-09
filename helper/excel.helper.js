@@ -1,6 +1,7 @@
-// excel.helper.js (ESM - FINAL & CORRECTED)
+// // excel.helper.js (ESM - FINAL & CORRECTED)
 
-import ExcelJS from "exceljs";
+import ExcelJS_pkg from "exceljs";
+const { Workbook } = ExcelJS_pkg; // Destructure the Workbook constructor
 
 /**
  * Maps ACTUAL CSV/EXCEL headers to database column names for injection.
@@ -18,7 +19,6 @@ const columnMappings = {
     availability: "availability",
     rating: "rating",
     password: "password",
-    // Columns like 'created_at' are auto-excluded.
   },
   Patients: {
     patient_id: "patient_id",
@@ -29,26 +29,24 @@ const columnMappings = {
     dob: "dob",
     location: "location",
     medical_history: "medical_history",
-    // Columns like 'created_at', 'updated_visit' are auto-excluded.
   },
-  Appointments: {
+  // FIX 1: Changed key from "Appointments" (plural) to "Appointment" (singular)
+  // to match the sheet name passed from the controller.
+  Appointment: {
     appointment_id: "appointment_id",
     patient_id: "patient_id",
     doctor_id: "doctor_id",
     date: "date_part", // Temporary key for transformation
     time: "time_part", // Temporary key for transformation
-    // Note: 'reason' is missing in CSV, will be null in DB
     status: "status",
-    // Columns like 'location', 'created_at' are auto-excluded.
   },
-  Consultation: {
+  Consultations: {
     patient_id: "patient_id",
     doctor_id: "doctor_id",
     date: "date", // Maps directly to DB DATETIME
     symptoms: "symptoms",
     diagnosis: "diagnosis",
     prescription: "prescription",
-    // Columns like 'consult_id' (auto-increment), 'created_at' are auto-excluded.
   },
 };
 
@@ -56,44 +54,88 @@ const columnMappings = {
  * Reads a specific sheet from the Excel buffer and transforms the data for DB insertion.
  */
 export async function readExcelSheet(excelBuffer, sheetName) {
-  const workbook = new ExcelJS.Workbook();
+  const workbook = new Workbook();
   await workbook.xlsx.load(excelBuffer);
 
-  const worksheet = workbook.getWorksheet(sheetName);
+  // Sheet name lookup, including case-insensitive matching
+  let worksheet = workbook.getWorksheet(sheetName);
+
   if (!worksheet) {
-    // Fallback for case sensitivity or slight naming variations
-    const possibleSheetName = Object.keys(columnMappings).find(
+    // This custom lookup block remains, ensuring we try to get the sheet
+    // even if case or singular/plural doesn't exactly match the mapping key.
+    const sheetMapKey = Object.keys(columnMappings).find(
       (key) => key.toLowerCase() === sheetName.toLowerCase()
     );
-    if (possibleSheetName) sheetName = possibleSheetName;
-    else throw new Error(`Sheet named "${sheetName}" not found.`);
+
+    if (sheetMapKey) {
+      const actualSheetName = workbook.worksheets.find(
+        (s) => s.name.toLowerCase() === sheetName.toLowerCase()
+      )?.name;
+
+      if (actualSheetName) {
+        worksheet = workbook.getWorksheet(actualSheetName);
+        sheetName = sheetMapKey;
+      }
+    }
+
+    if (!worksheet) {
+      throw new Error(
+        `Sheet named "${sheetName}" not found in the Excel file.`
+      );
+    }
   }
 
   const headerRow = worksheet.getRow(1);
   const headers = [];
-  headerRow.eachCell((cell) => headers.push(cell.text));
+  headerRow.eachCell((cell) =>
+    headers.push(
+      String(cell.text)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_|_$/g, "")
+    )
+  );
 
   const mapping = columnMappings[sheetName];
 
+  // Defensive check for mapping existence before proceeding
+  if (!mapping) {
+    throw new Error(
+      `Configuration error: No column mapping found for sheet/key "${sheetName}".`
+    );
+  }
+
   const data = [];
-  worksheet.eachRow((row, rowNumber) => {
+
+  // FIX: Only include non-empty rows, and use rowNumber check for header
+  worksheet.eachRow({ includeEmpty: false }, (row, rowNumber) => {
     if (rowNumber === 1) return; // Skip header row
 
     const rowData = {};
     let tempDatePart = null;
     let tempTimePart = null;
-    let isEmptyRow = true;
 
     row.eachCell((cell, colNumber) => {
       const excelHeader = headers[colNumber - 1];
       const dbColumn = mapping[excelHeader];
 
-      if (!dbColumn) return; // Skip unmapped columns (like created_at, consult_id, location in Appointments)
+      if (!dbColumn) return; // Skip unmapped columns
 
       let cellValue = cell.value;
 
+      // Clean cellValue if it's an object (RichText, Date, etc.)
+      if (cellValue && typeof cellValue === "object") {
+        if (cellValue.text) {
+          cellValue = cellValue.text;
+        } else if (cellValue instanceof Date) {
+          // Keep as Date object for date/time combination later if needed
+        }
+      }
+
       // --- Special Handling for Appointments Date/Time Combination ---
-      if (sheetName === "Appointments") {
+      // This check is now for "Appointment" (singular) which is the correct mapping key
+      if (sheetName === "Appointment") {
         if (dbColumn === "date_part") {
           tempDatePart = cellValue;
           return;
@@ -119,53 +161,64 @@ export async function readExcelSheet(excelBuffer, sheetName) {
       } else {
         rowData[dbColumn] = cellValue != null ? String(cellValue).trim() : null;
       }
-
-      if (rowData[dbColumn] !== null && String(rowData[dbColumn]).length > 0) {
-        isEmptyRow = false;
-      }
     });
 
     // --- Post-Row Processing for Appointments (Combining Date and Time) ---
-    if (sheetName === "Appointments" && tempDatePart) {
-      isEmptyRow = false; // Row must have a date/time
-
-      let dateStr =
-        tempDatePart instanceof Date
-          ? tempDatePart.toISOString().slice(0, 10)
-          : String(tempDatePart);
-      let timeStr =
-        tempTimePart instanceof Date
-          ? tempTimePart.toISOString().slice(11, 19)
-          : String(tempTimePart);
-
-      // Handle time part formatting (Excel often gives date objects for time)
-      if (timeStr && timeStr.includes(":")) {
-        // Time is already formatted (e.g., HH:mm:ss)
-      } else if (timeStr && timeStr.length > 5 && timeStr.length < 10) {
-        // Common case where time is stored as fractional day (0.xx) in cell.value
-        const timeObject = new Date(
-          0,
-          0,
-          0,
-          0,
-          0,
-          0,
-          timeStr * 24 * 3600 * 1000
-        );
-        timeStr = timeObject.toISOString().slice(11, 19);
-      } else {
-        // Fallback or if time is a simple string
-        timeStr = tempTimePart || "00:00:00";
+    if (sheetName === "Appointment" && tempDatePart) {
+      let dateStr = null;
+      if (tempDatePart instanceof Date) {
+        dateStr = tempDatePart.toISOString().slice(0, 10);
+      } else if (typeof tempDatePart === "string") {
+        dateStr = tempDatePart.split(" ")[0]; // Handle YYYY-MM-DD
       }
 
-      rowData["appointment_date"] = `${dateStr} ${timeStr}`;
+      let timeStr = null;
+      if (tempTimePart instanceof Date) {
+        timeStr = tempTimePart.toLocaleTimeString("en-GB", {
+          hour12: false,
+        });
+      } else if (typeof tempTimePart === "string") {
+        timeStr = tempTimePart.split(" ")[0]; // Handle HH:MM:SS
+      }
 
-      // Remove temporary keys if they somehow made it into rowData
+      if (dateStr && timeStr) {
+        // NOTE: The DB column is 'appointment_date' as per your export function
+        rowData["appointment_date"] = `${dateStr} ${timeStr}`;
+      } else if (dateStr) {
+        rowData["appointment_date"] = dateStr;
+      } else {
+        rowData["appointment_date"] = null;
+      }
+
+      // Remove temporary keys (Only delete them here inside the combining block)
       delete rowData.date_part;
       delete rowData.time_part;
     }
 
-    if (!isEmptyRow && Object.keys(rowData).length > 0) {
+    // REMOVED DUPLICATE/MISPLACED KEY DELETION BLOCK HERE
+
+    // Final check for 'consultation' table missing reason
+    if (sheetName === "Consultation" && rowData.location !== undefined) {
+      rowData.reason = rowData.location;
+      delete rowData.location;
+    }
+
+    // Robust Row Validation based on Primary Key before pushing.
+    const primaryKeyCandidates = ["appointment_id", "doctor_id", "patient_id"];
+    const dbPrimaryKey = primaryKeyCandidates.find((key) =>
+      rowData.hasOwnProperty(key)
+    );
+
+    // Only push if a mapped primary key exists AND has a non-empty value
+    if (
+      dbPrimaryKey &&
+      rowData[dbPrimaryKey] &&
+      String(rowData[dbPrimaryKey]).length > 0
+    ) {
+      data.push(rowData);
+    }
+    // Fallback: check if any data was extracted if no clear primary key is defined in rowData
+    else if (!dbPrimaryKey && Object.keys(rowData).length > 0) {
       data.push(rowData);
     }
   });
@@ -177,22 +230,33 @@ export async function readExcelSheet(excelBuffer, sheetName) {
  * Constructs a single INSERT statement for batch insertion.
  */
 export function buildBatchInsert(tableName, data) {
-  if (data.length === 0) {
+  // CRITICAL FIX: Filter out any null, undefined, or empty objects.
+  const cleanedData = data.filter(
+    (row) => row && typeof row === "object" && Object.keys(row).length > 0
+  );
+
+  if (cleanedData.length === 0) {
+    // Graceful return if no data remains after filtering
     return { sql: "", values: [] };
   }
 
-  // Filter out auto-increment keys if present
-  const columns = Object.keys(data[0]).filter(
+  // Use defensive object key extraction, providing an empty object as a fallback
+  const columns = Object.keys(cleanedData[0] || {}).filter(
     (col) => col !== "consult_id" && col !== "id"
   );
 
+  // Guard against rows having no valid columns (e.g., all were filtered out)
+  if (columns.length === 0) {
+    return { sql: "", values: [] };
+  }
+
   const placeholders = `(${columns.map(() => "?").join(", ")})`;
-  const valuePlaceholders = data.map(() => placeholders).join(", ");
+  const valuePlaceholders = cleanedData.map(() => placeholders).join(", ");
 
   const sql = `INSERT INTO ${tableName} (${columns.join(
     ", "
   )}) VALUES ${valuePlaceholders}`;
-  const values = data.flatMap((row) => columns.map((col) => row[col]));
+  const values = cleanedData.flatMap((row) => columns.map((col) => row[col]));
 
   return { sql, values };
 }
@@ -201,7 +265,7 @@ export function buildBatchInsert(tableName, data) {
  * Generates an Excel file buffer from database results. (Used for Export)
  */
 export async function generateExcel(dataSets) {
-  const workbook = new ExcelJS.Workbook();
+  const workbook = new Workbook();
 
   for (const dataSet of dataSets) {
     const { sheetName, data } = dataSet;

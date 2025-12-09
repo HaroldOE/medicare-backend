@@ -1,6 +1,12 @@
-// excel.controller.js (ESM)
+// excel.controller.js (FINAL WITH DIAGNOSTICS)
 
-import db from "../models/db.js";
+// NOTE: Assuming db.js exports a function: export default createConnection;
+import createConnection from "../models/db.js";
+
+// Initialize the pool promise once at the module level
+// dbPromise is a Promise<Pool>
+const dbPromise = createConnection();
+
 import {
   readExcelSheet,
   buildBatchInsert,
@@ -11,40 +17,75 @@ import {
 const tablesToProcess = [
   { name: "Doctors", sheet: "Doctors" },
   { name: "Patients", sheet: "Patients" },
-  { name: "Appointments", sheet: "Appointments" },
-  { name: "consultation", sheet: "Consultation" },
+  { name: "Appointments", sheet: "Appointment" },
+  { name: "consultation", sheet: "Consultations" },
 ];
 
 /**
  * Handles the file upload and data injection. (POST /api/data/inject)
  */
 export async function injectData(req, res) {
+  // --- File Access and Validation ---
   if (!req.files || Object.keys(req.files).length === 0) {
     return res
       .status(400)
       .send(
-        'No files were uploaded. Please upload a file with the field name "excel".'
+        'No files were uploaded. Ensure body is "form-data" and key is "excel".'
       );
   }
 
+  // Try to get the file by the expected field name 'excel'
   const excelFile = req.files.excel;
+
+  if (!excelFile || !excelFile.name) {
+    return res.status(400).send("File field 'excel' not found in the request.");
+  }
+
   if (!excelFile.name.endsWith(".xlsx")) {
     return res
       .status(400)
       .send("Invalid file format. Please upload an .xlsx file.");
   }
+  // --- End File Access and Validation ---
 
   const results = {};
   let connection;
 
   try {
-    connection = await db.getConnection();
+    // --- Database Connection (The fix from previous steps) ---
+    const pool = await dbPromise;
+    connection = await pool.getConnection();
     await connection.beginTransaction(); // Start Transaction
+    // --- End Database Connection ---
 
     for (const tableInfo of tablesToProcess) {
       const { name, sheet } = tableInfo;
 
-      // 1. Read and transform data
+      // --- CRITICAL DIAGNOSTIC LOGS ---
+      console.log(`\n======================================================`);
+      console.log(`Processing Sheet: ${sheet}`);
+      console.log(`File Name: ${excelFile.name}`);
+      console.log(
+        `Reported Size (express-fileupload): ${excelFile.size} bytes`
+      );
+
+      // This is the check for the "Corrupted zip" error:
+      if (!excelFile.data || excelFile.data.length === 0) {
+        console.error(
+          "❌ CRITICAL ERROR: excelFile.data buffer is 0 bytes! Cannot read file."
+        );
+        throw new Error(
+          "Uploaded file data buffer is empty. Try setting useTempFiles: false in index.js."
+        );
+      } else {
+        console.log(
+          `Buffer Data Length (Passed to exceljs): ${excelFile.data.length} bytes ✅`
+        );
+      }
+      console.log(`======================================================\n`);
+      // --- END DIAGNOSTIC LOGS ---
+
+      // 1. Read and transform data (This is where exceljs failed previously)
       const rawData = await readExcelSheet(excelFile.data, sheet);
 
       if (rawData.length === 0) {
@@ -55,12 +96,10 @@ export async function injectData(req, res) {
         continue;
       }
 
-      // 2. Build the batch insert query
+      // 2. Build and execute the batch insert query (unchanged logic)
       const { sql, values } = buildBatchInsert(name, rawData);
 
       if (sql) {
-        // 3. Execute the batch insert
-        // Use IGNORE for tables with UNIQUE constraints
         let finalSql = sql;
         if (["Doctors", "Patients", "Appointments"].includes(name)) {
           finalSql = sql.replace("INSERT INTO", "INSERT IGNORE INTO");
@@ -106,9 +145,11 @@ export async function exportData(req, res) {
   let connection;
 
   try {
-    connection = await db.getConnection();
+    // Get the initialized pool and a connection
+    const pool = await dbPromise;
+    connection = await pool.getConnection();
 
-    // Define tables to export and their columns (for cleaner output than SELECT *)
+    // Define tables to export and their columns
     const tablesToExport = [
       {
         name: "Doctors",

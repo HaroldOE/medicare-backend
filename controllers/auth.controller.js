@@ -2,7 +2,8 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { User } from "../models/user.model.js";
-import { error } from "console";
+import { Patient } from "../models/patient.model.js";
+// import { error } from "console";
 
 const JWT_SECRET = process.env.JWT_SECRET_KEY;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRATION || "1h";
@@ -50,6 +51,55 @@ export const authController = {
     }
   },
 
+  // controllers
+
+  patientLogin: async (req, res) => {
+    try {
+      const { email, password } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ message: "Email and password required" });
+      }
+
+     
+      const patient = await Patient.findByEmail(email.toLowerCase());
+
+      if (!patient) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      const isMatch = await bcrypt.compare(password, patient.password);
+      if (!isMatch) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Create same JWT structure as doctor login
+      const token = jwt.sign(
+        {
+          user_id: patient.id || patient.patient_id, // adjust to your column name
+          email: patient.email,
+          role: "patient",
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRES_IN }
+      );
+
+      return res.json({
+        message: "Login successful",
+        token,
+        user: {
+          user_id: patient.id || patient.patient_id,
+          fullname: patient.fullname,
+          email: patient.email,
+          role: "patient",
+        },
+      });
+    } catch (error) {
+      console.error("Patient login error:", error);
+      return res.status(500).json({ message: "Server error" });
+    }
+  },
+
   requestPasswordReset: async (req, res) => {
     try {
       const { email } = req.body;
@@ -63,14 +113,6 @@ export const authController = {
 
       await User.deleteAllResetTokensForUser(user.user_id);
       await User.createPasswordResetToken(user.user_id, tokenPlain, expiresAt);
-
-      // TODO: send tokenPlain via email in production ✅
-      // TODO: set up frontend link
-      // const resetLink = res.json({
-      //   message: "Password reset token generated",
-      //   token: tokenPlain,
-      //   expires_at: expiresAt,
-      // });
 
       const resetLink = `${FRONTEND_URL}/reset-password?token=${tokenPlain}`;
 

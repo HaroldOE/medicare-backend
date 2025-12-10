@@ -138,4 +138,13 @@ export const Doctor = {
     );
     return result.affectedRows;
   },
+
+  async findByEmail(email) {
+    const [rows] = await db.execute(
+      "SELECT * FROM Doctors WHERE email = ? LIMIT 1",
+      [email]
+    );
+    return rows[0];
+  },
 };
+

@@ -6,7 +6,7 @@ export const createConsultationTable = async () => {
   try {
     await db.query(`CREATE TABLE IF NOT EXISTS consultation (
       consult_id INT AUTO_INCREMENT PRIMARY KEY,
-      patient_id INT NOT NULL,
+      patient_id VARCHAR(10) NOT NULL,
       doctor_id INT NOT NULL,
       date DATETIME,
       symptoms TEXT,
